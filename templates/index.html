@@ -3,17 +3,71 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="static/style.css">
-<script type="text/javascript" src="static/script.js"></script>
 </head>
 <body>
-<h1>Flask Image Gallery</h1>
-  <div class="overlay"><img src="blah" id="top" hidden=True>
+<h1>HUB75 LED Matrix Admin</h1>
+<h2>Config</h2>
+<form id="configForm" action="/cdn/config" method="post" target="dummyframe">
+  <div>
+    <label for="image_delay">GIF delay (in Minutes):</label>
+    <input type="text" id="image_delay" name="image_delay" value={{ image_delay }}><br>
+  </div>
+  <div>
+    <p>Display Mode:</p>
+    <input type="radio" id="display_mode1" name="display_mode" value="random">
+    <label for="display_mode1">Random</label><br>
+    <input type="radio" id="display_mode2" name="display_mode" value="sequential">
+    <label for="display_mode2">Sequential</label><br> 
+  </div>
+  <br />
+  <input type="submit" value="Submit">
+</form>
+
+<script>
+
+  let display_mode = "{{ display_mode }}";
+  if (display_mode == "random") {
+    document.getElementById("display_mode1").checked = true;
+  } else if (display_mode == "sequential") {
+    document.getElementById("display_mode2").checked = true;
+  } else {
+    alert("Unknown display mode: " + display_mode);
+  }
+
+</script>
+
+<hr />
+<h2>Upload Images</h2>
+
+<form id="uploadForm" action="/cdn/upload" method="POST" enctype="multipart/form-data" target="dummyframe">
+  <div>
+    <label for="fileInput">Upload GIF:</label>
+    <input id="fileInput" onchange="changeFilename(this.value)" type="file" name="imageData">
+    <button id="fileSubmitButton" type="submit">Submit</button>
+  </div>
+</form>
+
+<hr />
+<h2>GIFs</h2>
+  <div class="overlay"><img src="blah" height={{ hub75height*10 }} width={{ hub75width*10 }} id="top" hidden=True>
     <span id="close" hidden=True onclick=do_close()><b><u>CLOSE(X)</u></b></span>
   </div>
-  <div class="cx" style="background-color:#fff;">
+  <div class="cx" id="imagesDiv" style="background-color:#fff;">
     {% for path in paths %}
-    <img src='cdn/{{ path }}' height=200 width=200 onclick="clicked_img(this)" >
+    <div class="imgDiv" id="imgDiv{{ path }}">
+      <p><img src='cdn/{{ path }}' height={{ hub75height }} width={{ hub75width }} onclick="clicked_img(this)" ></p>
+      <p style="text-align: center;">
+        <!--<button onclick="delete_img(this)" value="{{ path }}">Delete</button>-->
+        <button onclick="show_img(this)" value="{{ path }}">Display</button>
+      </p>
+    </div>
     {% endfor %}
   </div>
+
+<script type="text/javascript" src="static/script.js"></script>
+
+<script>
+  getCurrentImage();
+</script>
 </body>
 </html>

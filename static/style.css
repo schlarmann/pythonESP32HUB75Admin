@@ -1,7 +1,7 @@
 
 body {
   font-family: Verdana, sans-serif;
-  margin: 0;
+  margin: 1% 5%;
 }
 
 * {
@@ -15,6 +15,13 @@ body {
   /* bring your own prefixes */
   transform: translate(-50%, -50%);
 
+}
+
+.imgDiv {
+  display: inline-block;
+  border-style: groove;
+  border-width: 3px;
+  margin: 2px;
 }
 
 #top {
