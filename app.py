@@ -23,10 +23,11 @@ HUB75_WIDTH = 128
 HUB75_HEIGHT = 64
 # Add your upload function (to the matrix display) here
 def upload_image(imagePath):
+    #return
     UPLOAD_URL = "http://10.42.28.7/upload"
     UPLOAD_FORM = "data"
     with open(imagePath, "rb") as gif:
-        print(f"Trying to upload {imagePath} to {UPLOAD_URL}!")
+        #print(f"Trying to upload {imagePath} to {UPLOAD_URL}!")
         requests.post(UPLOAD_URL, files = {UPLOAD_FORM: gif})
 
 # Flask app
@@ -88,18 +89,25 @@ def create_file():
         # Modify GIF here
         gif_duration = im.info['duration']
         frames = [frame.copy() for frame in ImageSequence.Iterator(im)]
+        newFrames = []
 
         for frame in frames:
-            #newFrame = Image.new('RGB', (HUB75_WIDTH,HUB75_HEIGHT), (0,0,0))
-            frame.thumbnail((HUB75_WIDTH,HUB75_HEIGHT), Image.ANTIALIAS)
-            #frame = frame.convert('RGB')
+            frame.thumbnail((HUB75_WIDTH,HUB75_HEIGHT), resample=Image.LANCZOS, reducing_gap=3.0)
+
+            newFrame = Image.new('RGB', (HUB75_WIDTH,HUB75_HEIGHT), (0,0,0))
+            offset_x = int(max((HUB75_WIDTH - frame.size[0]) / 2, 0))
+            offset_y = int(max((HUB75_HEIGHT - frame.size[1]) / 2, 0))
+            offset_tuple = (offset_x, offset_y) #pack x and y into a tuple
+            newFrame.paste(frame.convert('RGB'), offset_tuple)
+            newFrames.append(newFrame)
 
         # Save GIF to disk
         filepath = os.path.join(app.config['ROOT_DIR'], imageFile.filename)
 
-        frames[0].save(filepath, 
-            save_all = True, append_images = frames[1:], 
-            optimize = False, duration = gif_duration) 
+        newFrames[0].save(filepath, 
+            save_all = True, append_images = newFrames[1:], 
+            optimize = False, duration = gif_duration, loop=0,
+            include_color_table=True, interlace=False) 
         retVal = {"statusId":0, "newFile":filepath}
         return json.dumps(retVal),200
 
