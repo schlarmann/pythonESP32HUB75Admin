@@ -4,7 +4,7 @@ from flask import request
 from flask import render_template
 from flask import send_from_directory
 from io import BytesIO 
-from PIL import Image, ImageSequence
+from PIL import Image, ImageSequence, GifImagePlugin
 from threading import Thread
 
 import os
@@ -46,6 +46,7 @@ def encode(x):
 def decode(x):
     return base64.b64decode(x.encode('utf-8')).decode()
 
+GifImagePlugin.LOADING_STRATEGY = GifImagePlugin.LoadingStrategy.RGB_ALWAYS
 
 @app.route('/', methods = ['GET'])
 def home():
@@ -92,9 +93,11 @@ def create_file():
         newFrames = []
 
         for frame in frames:
+            frame.convert('RGB')
             frame.thumbnail((HUB75_WIDTH,HUB75_HEIGHT), resample=Image.LANCZOS, reducing_gap=3.0)
 
             newFrame = Image.new('RGB', (HUB75_WIDTH,HUB75_HEIGHT), (0,0,0))
+            newFrame.info["version"] = "GIF87a"
             offset_x = int(max((HUB75_WIDTH - frame.size[0]) / 2, 0))
             offset_y = int(max((HUB75_HEIGHT - frame.size[1]) / 2, 0))
             offset_tuple = (offset_x, offset_y) #pack x and y into a tuple
@@ -106,8 +109,8 @@ def create_file():
 
         newFrames[0].save(filepath, 
             save_all = True, append_images = newFrames[1:], 
-            optimize = False, duration = gif_duration, loop=0,
-            include_color_table=True, interlace=False) 
+            optimize = True, duration = gif_duration, loop=0,
+            include_color_table=True, interlace=True, disposal=1) 
         retVal = {"statusId":0, "newFile":filepath}
         return json.dumps(retVal),200
 
@@ -144,7 +147,7 @@ def show_file(filepath):
 
 @app.route('/cdn/del/<path:filepath>', methods = ['POST'])
 def remove_file(filepath):
-    return '{"status":"Image not found", "statusId":-5}',404
+    #return '{"status":"Image not found", "statusId":-5}',404
     # Disabled for now
     if os.path.isfile(decode(filepath)):
         fullpath = decode(filepath)

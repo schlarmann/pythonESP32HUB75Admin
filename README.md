@@ -5,14 +5,18 @@ A Flask application to upload, organize and select GIFs to display on a ESP32 ba
 
 Allows changing some settings like delay between the GIFs and order (random or sequential).
 
-### Run application
+Companion application / Admin for [esp32HUB75GifPlayer](https://github.com/schlarmann/esp32HUB75GifPlayer).
+
+`requirements.txt` still needs to be created.
+
+### Run application (from piyush01123/Flask-Image-Gallery)
 The preferred way to use is by Docker. If you have docker installed and you wish to view images on say `/home/piyush/Pictures` directory, you can issue following command and then browse `localhost:6006`. Change this to your preferred directory path.
 ```
 docker run -it -p 0.0.0.0:6006:5000/tcp -v /home/piyush/Pictures:/imgdir:ro piyush01123/flaskig python app.py /imgdir -l 0.0.0.0 -p 5000
 ```
 
 
-2nd way is to clone this repo, install `flask` and run `app.py`:
+2nd way (and the one I used) is to clone this repo, install `flask` and run `app.py`:
 ```
 python app.py /path/to/your/root/directory/containing/images
 ```

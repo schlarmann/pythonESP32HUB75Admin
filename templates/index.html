@@ -3,6 +3,7 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="static/style.css">
+<title>HUB75 LED Matrix Admin</title>
 </head>
 <body>
 <h1>HUB75 LED Matrix Admin</h1>
@@ -57,7 +58,7 @@
     <div class="imgDiv" id="imgDiv{{ path }}">
       <p><img src='cdn/{{ path }}' height={{ hub75height }} width={{ hub75width }} onclick="clicked_img(this)" ></p>
       <p style="text-align: center;">
-        <!--<button onclick="delete_img(this)" value="{{ path }}">Delete</button>-->
+        <button onclick="delete_img(this)" value="{{ path }}">Delete</button>
         <button onclick="show_img(this)" value="{{ path }}">Display</button>
       </p>
     </div>
