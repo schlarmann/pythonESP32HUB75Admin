@@ -12,6 +12,7 @@
   <div>
     <label for="image_delay">GIF delay (in Minutes):</label>
     <input type="text" id="image_delay" name="image_delay" value={{ image_delay }}><br>
+    <p>Next Image Upload: {{ imageTime }} | Now: {{ currentTime }}</p>
   </div>
   <div>
     <p>Display Mode:</p>
@@ -23,6 +24,14 @@
   <br />
   <input type="submit" value="Submit">
 </form>
+
+<p>
+  {% if threadActive %}
+  <i>Uploader Thread running!</i>
+  {% else %}
+  <b>Uploader Thread not running!</b>
+  {% endif %}
+</p>
 
 <script>
 
@@ -42,9 +51,15 @@
 
 <form id="uploadForm" action="/cdn/upload" method="POST" enctype="multipart/form-data" target="dummyframe">
   <div>
-    <label for="fileInput">Upload GIF:</label>
-    <input id="fileInput" onchange="changeFilename(this.value)" type="file" name="imageData">
-    <button id="fileSubmitButton" type="submit">Submit</button>
+    <p></p>
+      <label for="fileInput">Upload GIF:</label>
+      <input id="fileInput" onchange="changeFilename(this.value)" type="file" name="imageData">
+    </p>
+    <p>
+      <label for="customBGColor">Background Color:</label>
+      <input id="bgInput" name="customBGColor" type="color" value="#000000" />
+    </p>
+    <p><button id="fileSubmitButton" type="submit">Submit</button></p>
   </div>
 </form>
 
@@ -55,11 +70,12 @@
   </div>
   <div class="cx" id="imagesDiv" style="background-color:#fff;">
     {% for path in paths %}
-    <div class="imgDiv" id="imgDiv{{ path }}">
-      <p><img src='cdn/{{ path }}' height={{ hub75height }} width={{ hub75width }} onclick="clicked_img(this)" ></p>
+    <div class="imgDiv" id="imgDiv{{ path[0] }}">
+      <p><img src='cdn/{{ path[0] }}' height={{ hub75height }} width={{ hub75width }} onclick="clicked_img(this)" ></p>
+      <p style="text-align: center;">{{ path[1] }} kB</p>
       <p style="text-align: center;">
-        <button onclick="delete_img(this)" value="{{ path }}">Delete</button>
-        <button onclick="show_img(this)" value="{{ path }}">Display</button>
+        <button onclick="delete_img(this)" value="{{ path[0] }}">Delete</button>
+        <button onclick="show_img(this)" value="{{ path[0] }}">Display</button>
       </p>
     </div>
     {% endfor %}

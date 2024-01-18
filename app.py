@@ -1,4 +1,3 @@
-
 from flask import Flask
 from flask import request
 from flask import render_template
@@ -28,7 +27,8 @@ def upload_image(imagePath):
     UPLOAD_FORM = "data"
     with open(imagePath, "rb") as gif:
         #print(f"Trying to upload {imagePath} to {UPLOAD_URL}!")
-        requests.post(UPLOAD_URL, files = {UPLOAD_FORM: gif})
+        #requests.post(UPLOAD_URL, files = {UPLOAD_FORM: gif})
+        pass
 
 # Flask app
 app = Flask("pythonGIFChooser")
@@ -36,7 +36,7 @@ app.config['IMAGE_EXTS'] = [".gif"] # Only GIFs for now
 
 # State variables
 current_image = None
-image_delay = 1 # in Minutes
+image_delay = 3 # in Minutes
 next_image_time = 0 # Timestamp when next image should be shown
 display_mode = "random" # random, sequential
 
@@ -45,6 +45,12 @@ def encode(x):
 
 def decode(x):
     return base64.b64decode(x.encode('utf-8')).decode()
+
+def htmlColorToTuple(htmlcolor):
+    htmlcolor = htmlcolor.lstrip('#')
+    vals = [int(htmlcolor[i:i+2], 16) for i in (0, 2, 4)]
+    vals.append(255)# Add alpha
+    return tuple(vals)
 
 GifImagePlugin.LOADING_STRATEGY = GifImagePlugin.LoadingStrategy.RGB_ALWAYS
 
@@ -55,10 +61,13 @@ def home():
     for root,dirs,files in os.walk(root_dir):
         for file in files:
             if any(file.endswith(ext) for ext in app.config['IMAGE_EXTS']):
-                image_paths.append(encode(os.path.join(root,file)))
+                path = os.path.join(root,file)
+                size = f"{os.path.getsize(path)/1000:0.1f}"
+                image_paths.append([encode(path), size])
     current_imageVar = encode(current_image) if current_image is not None else "None"
     return render_template('index.html', paths=image_paths, hub75width=HUB75_WIDTH, hub75height=HUB75_HEIGHT, 
-        image_delay=image_delay, display_mode=display_mode, current_image=current_imageVar)
+        image_delay=image_delay, display_mode=display_mode, current_image=current_imageVar,
+        imageTime=next_image_time, currentTime=time.time(), threadActive=workerTH.is_alive())
 
 
 @app.route('/cdn/<path:filepath>', methods = ['GET'])
@@ -77,9 +86,14 @@ def get_current():
 @app.route('/cdn/upload', methods = ['POST'])
 def create_file():
     imageFile = request.files['imageData']
+    bgColor = request.form.get('customBGColor', '#000000')
+    bgColorRGB = htmlColorToTuple(bgColor)
     imageDataB64 = base64.b64encode(imageFile.read())
     if(imageDataB64 == ''):
         retVal = {"status":"Please provide an image file in \"imageData\"", "statusId":-1}
+        return json.dumps(retVal),400
+    if(bgColorRGB[0]+bgColorRGB[1]+bgColorRGB[2] > 255):
+        retVal = {"status":"Please provide a darker image background!", "statusId":-1}
         return json.dumps(retVal),400
     try:
         im = Image.open(BytesIO(base64.b64decode(imageDataB64))) 
@@ -89,28 +103,37 @@ def create_file():
     else:
         # Modify GIF here
         gif_duration = im.info['duration']
+        avg_duration = 0
+        count = 0
+        im.info["transparency"] = im.info["background"]
         frames = [frame.copy() for frame in ImageSequence.Iterator(im)]
         newFrames = []
 
         for frame in frames:
-            frame.convert('RGB')
+            print(frame.mode)
             frame.thumbnail((HUB75_WIDTH,HUB75_HEIGHT), resample=Image.LANCZOS, reducing_gap=3.0)
+            avg_duration += frame.info['duration']
+            count += 1
 
-            newFrame = Image.new('RGB', (HUB75_WIDTH,HUB75_HEIGHT), (0,0,0))
+            newFrame = Image.new('RGBA', (HUB75_WIDTH,HUB75_HEIGHT), bgColorRGB)
             newFrame.info["version"] = "GIF87a"
             offset_x = int(max((HUB75_WIDTH - frame.size[0]) / 2, 0))
             offset_y = int(max((HUB75_HEIGHT - frame.size[1]) / 2, 0))
             offset_tuple = (offset_x, offset_y) #pack x and y into a tuple
-            newFrame.paste(frame.convert('RGB'), offset_tuple)
-            newFrames.append(newFrame)
+            newFrame.alpha_composite(frame.convert('RGBA'), offset_tuple)
+            newFrames.append(newFrame.convert("RGB"))
 
         # Save GIF to disk
         filepath = os.path.join(app.config['ROOT_DIR'], imageFile.filename)
 
+        avg_duration = int(avg_duration / count)
+        if avg_duration != gif_duration:
+            gif_duration = avg_duration
+
         newFrames[0].save(filepath, 
             save_all = True, append_images = newFrames[1:], 
-            optimize = True, duration = gif_duration, loop=0,
-            include_color_table=True, interlace=True, disposal=1) 
+            optimize = False, duration = gif_duration, loop=0,
+            interlace=True, disposal=2) 
         retVal = {"statusId":0, "newFile":filepath}
         return json.dumps(retVal),200
 
@@ -178,29 +201,43 @@ def worker_thread(root_dir):
             time.sleep(2)
             if(next_image_time == 0):
                 break
-        if next_image_time != 0:
-            # Select next image only if we are not in "show" mode
-            if display_mode == "random":
-                image_paths = []
-                for root,dirs,files in os.walk(root_dir):
-                    for file in files:
-                        if any(file.endswith(ext) for ext in app.config['IMAGE_EXTS']):
-                            image_paths.append(os.path.join(root,file))
-                current_image = random.choice(image_paths)
-                #print("Next image: %s" % current_image)
-            elif display_mode == "sequential":
-                image_paths = []
-                for root,dirs,files in os.walk(root_dir):
-                    for file in files:
-                        if any(file.endswith(ext) for ext in app.config['IMAGE_EXTS']):
-                            image_paths.append(os.path.join(root,file))
-                if current_image is None:
-                    current_image = image_paths[0]
-                else:
-                    current_image = image_paths[(image_paths.index(current_image)+1)%len(image_paths)]
-                #print("Next image: %s" % current_image)
-        next_image_time = time.time() + image_delay*60
-        #time.sleep(image_delay*60)
+        try:
+            if next_image_time != 0:
+                # Select next image only if we are not in "show" mode
+                if display_mode == "random":
+                    image_paths = []
+                    for root,dirs,files in os.walk(root_dir):
+                        for file in files:
+                            if any(file.endswith(ext) for ext in app.config['IMAGE_EXTS']):
+                                image_paths.append(os.path.join(root,file))
+                    current_image = random.choice(image_paths)
+                    #print("Next image: %s" % current_image)
+                elif display_mode == "sequential":
+                    image_paths = []
+                    for root,dirs,files in os.walk(root_dir):
+                        for file in files:
+                            if any(file.endswith(ext) for ext in app.config['IMAGE_EXTS']):
+                                image_paths.append(os.path.join(root,file))
+                    if current_image is None:
+                        current_image = image_paths[0]
+                    else:
+                        current_image = image_paths[(image_paths.index(current_image)+1)%len(image_paths)]
+                    #print("Next image: %s" % current_image)
+            next_image_time = time.time() + image_delay*60
+            #time.sleep(image_delay*60)
+        except KeyboardInterrupt as e:
+            raise e
+        except Exception as e:
+            # Reset image selection if we have an error
+            display_mode = "random"
+            root,dirs,files = os.walk(root_dir)
+            for file in files:
+                if any(file.endswith(ext) for ext in app.config['IMAGE_EXTS']):
+                    # Choose the first image we find
+                    current_image = os.path.join(root,file)
+                    break
+            next_image_time = time.time() + image_delay*60
+            pass
         
 
 if __name__=="__main__":
@@ -211,6 +248,10 @@ if __name__=="__main__":
     parser.add_argument('-p', '--port', metavar='PORT', dest='port', type=int, \
                                 default=5000, help='port to listen on [5000]')
     args = parser.parse_args()
+
+    # Create pid file for auto-restart
+    with open("./pid", "w") as pidFile:
+        pidFile.write(str(os.getpid()))
 
     # Start with random Image
     image_paths = []
